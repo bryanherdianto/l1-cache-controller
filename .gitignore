@@ -1,0 +1,28 @@
+# ModelSim / QuestaSim outputs
+work/
+transcript
+vsim.wlf
+*.wlf
+*.vstf
+*.log
+*.bak
+*.orig
+
+# Intel Quartus Prime synthesis / project files
+db/
+incremental_db/
+output_files/
+*.qsf
+*.qpf
+*.rpt
+*.summary
+*.sof
+*.pof
+
+# Python cache & Editor artifacts
+__pycache__/
+*.pyc
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
