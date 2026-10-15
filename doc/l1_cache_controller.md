@@ -6,8 +6,6 @@
 
 ## Diagram
 ![Diagram](l1_cache_controller.svg "Diagram")
-## Description
-
 
 ## Generics
 
@@ -82,20 +80,21 @@
 
 ## Constants
 
-| Name              | Type | Value                                     | Description                                      |
-| ----------------- | ---- | ----------------------------------------- | ------------------------------------------------ |
-| OFFSET_BITS       |      | 4                                         | Log2(LINE_BYTES): 4 bits for 16-byte line offset |
-| SET_INDEX_BITS    |      | 6                                         | Log2(NUM_SETS): 6 bits for 64 sets               |
-| TAG_BITS          |      | ADDR_WIDTH - SET_INDEX_BITS - OFFSET_BITS | Tag bit width (32 - 6 - 4 = 22 bits)             |
-| LINE_WIDTH        |      | LINE_BYTES * 8                            | Cache line width in bits (128 bits)              |
-| WORDS_PER_LINE    |      | LINE_BYTES / (DATA_WIDTH / 8)             | Number of 32-bit words per line (4 words)        |
-| WORD_OFFSET_BITS  |      | 2                                         | Word offset bit width within line (2 bits)       |
-| STATE_IDLE        |      | 3'b000                                    | Idle and normal 1-cycle hit evaluation state     |
-| STATE_COMPARE_TAG |      | 3'b001                                    | Tag comparison state                             |
-| STATE_WRITE_BACK  |      | 3'b010                                    | Evict dirty victim line to lower memory          |
-| STATE_ALLOCATE    |      | 3'b011                                    | Fetch requested line from lower memory           |
+| Name             | Type | Value                                     | Description                                      |
+| ---------------- | ---- | ----------------------------------------- | ------------------------------------------------ |
+| OFFSET_BITS      |      | 4                                         | Log2(LINE_BYTES): 4 bits for 16-byte line offset |
+| SET_INDEX_BITS   |      | 6                                         | Log2(NUM_SETS): 6 bits for 64 sets               |
+| TAG_BITS         |      | ADDR_WIDTH - SET_INDEX_BITS - OFFSET_BITS | Tag bit width (32 - 6 - 4 = 22 bits)             |
+| LINE_WIDTH       |      | LINE_BYTES * 8                            | Cache line width in bits (128 bits)              |
+| WORDS_PER_LINE   |      | LINE_BYTES / (DATA_WIDTH / 8)             | Number of 32-bit words per line (4 words)        |
+| WORD_OFFSET_BITS |      | 2                                         | Word offset bit width within line (2 bits)       |
+| S_IDLE           |      | 3'b000                                    | Idle and normal 1-cycle hit evaluation state     |
+| S_COMPARE_TAG    |      | 3'b001                                    | Tag comparison state                             |
+| S_WRITE_BACK     |      | 3'b010                                    | Evict dirty victim line to lower memory          |
+| S_ALLOCATE       |      | 3'b011                                    | Fetch requested line from lower memory           |
 
 ## Functions
 - extract_word <font id="function_arguments">(input [LINE_WIDTH-1:0]       line_data;<br><span style="padding-left:20px">)</font> <font id="function_return">return ([DATA_WIDTH-1:0])</font>
-  -  Extracts a 32-bit word from a 128-bit cache line based on word index- merge_write_line <font id="function_arguments">(input [LINE_WIDTH-1:0]       orig_line;<br><span style="padding-left:20px">)</font> <font id="function_return">return ([LINE_WIDTH-1:0])</font>
-  -  Merges a 32-bit CPU write word into a 128-bit line according to byte strobes
+  -  Extracts a 32-bit word from a 128-bit cache line based on word index
+- merge_write_line <font id="function_arguments">(input [LINE_WIDTH-1:0]       orig_line;<br><span style="padding-left:20px">)</font> <font id="function_return">return ([LINE_WIDTH-1:0])</font>
+  -  Merges a 32-bit CPU write word into a 128-bit line according to byte strobes

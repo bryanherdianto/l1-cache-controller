@@ -48,10 +48,10 @@ module l1_cache_controller #(
     localparam WORD_OFFSET_BITS = 2;                                            //! Word offset bit width within line (2 bits)
 
     // FSM States
-    localparam [2:0] STATE_IDLE        = 3'b000; //! Idle and normal 1-cycle hit evaluation state
-    localparam [2:0] STATE_COMPARE_TAG = 3'b001; //! Tag comparison state
-    localparam [2:0] STATE_WRITE_BACK  = 3'b010; //! Evict dirty victim line to lower memory
-    localparam [2:0] STATE_ALLOCATE    = 3'b011; //! Fetch requested line from lower memory
+    localparam [2:0] S_IDLE        = 3'b000; //! Idle and normal 1-cycle hit evaluation state
+    localparam [2:0] S_COMPARE_TAG = 3'b001; //! Tag comparison state
+    localparam [2:0] S_WRITE_BACK  = 3'b010; //! Evict dirty victim line to lower memory
+    localparam [2:0] S_ALLOCATE    = 3'b011; //! Fetch requested line from lower memory
 
     reg [2:0] state; //! Current FSM control state
 
@@ -92,7 +92,7 @@ module l1_cache_controller #(
     wire is_hit   = way0_hit || way1_hit;                                   //! Asserted when either way hits
     wire hit_way  = way1_hit ? 1'b1 : 1'b0;                                 //! Way index that hit (0 or 1)
 
-    assign cpu_hit = is_hit && (state == STATE_IDLE) && cpu_req;
+    assign cpu_hit = is_hit && (state == S_IDLE) && cpu_req;
 
     //! Extracts a 32-bit word from a 128-bit cache line based on word index
     function [DATA_WIDTH-1:0] extract_word;
@@ -148,7 +148,7 @@ module l1_cache_controller #(
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            state              <= STATE_IDLE;
+            state              <= S_IDLE;
             cpu_ready          <= 1'b0;
             cpu_rdata          <= {DATA_WIDTH{1'b0}};
             mem_req            <= 1'b0;
@@ -161,24 +161,22 @@ module l1_cache_controller #(
             stat_write_misses  <= 32'd0;
             stat_writebacks    <= 32'd0;
 
-            // Invalidate all cache lines and initialize LRU
+            // Invalidate all cache lines and initialize LRU.
+            // Note: tag_mem and data_mem are intentionally omitted from reset
+            // to allow EDA tools (Quartus/Vivado) to infer high-density Block RAM (BRAM).
             for (i = 0; i < NUM_SETS; i = i + 1) begin
                 valid_mem_0[i] <= 1'b0;
                 dirty_mem_0[i] <= 1'b0;
-                tag_mem_0[i]   <= {TAG_BITS{1'b0}};
-                data_mem_0[i]  <= {LINE_WIDTH{1'b0}};
 
                 valid_mem_1[i] <= 1'b0;
                 dirty_mem_1[i] <= 1'b0;
-                tag_mem_1[i]   <= {TAG_BITS{1'b0}};
-                data_mem_1[i]  <= {LINE_WIDTH{1'b0}};
 
                 lru_mem[i]     <= 1'b0;
             end
         end else begin
             case (state)
-                // STATE_IDLE: Normal fast-path evaluation state
-                STATE_IDLE: begin
+                // S_IDLE: Normal fast-path evaluation state
+                S_IDLE: begin
                     if (cpu_req) begin
                         if (is_hit) begin
                             // Fast 1-Cycle Hit Path
@@ -204,7 +202,7 @@ module l1_cache_controller #(
 
                             // Update 1-bit LRU (Accessed way becomes Most Recently Used)
                             lru_mem[cur_set] <= ~hit_way;
-                            state            <= STATE_IDLE;
+                            state            <= S_IDLE;
 
                         end else begin
                             // Cache Miss: Stall CPU and Initiate Allocation
@@ -222,7 +220,7 @@ module l1_cache_controller #(
 
                             // If victim is valid and dirty, write back to memory first
                             if (victim_is_valid && victim_is_dirty) begin
-                                state     <= STATE_WRITE_BACK;
+                                state     <= S_WRITE_BACK;
                                 mem_req   <= 1'b1;
                                 mem_write <= 1'b1;
                                 mem_addr  <= (victim_select == 1'b0) ?
@@ -234,7 +232,7 @@ module l1_cache_controller #(
                                 stat_writebacks <= stat_writebacks + 1'b1;
                             end else begin
                                 // Clean/invalid victim: allocate directly from memory
-                                state     <= STATE_ALLOCATE;
+                                state     <= S_ALLOCATE;
                                 mem_req   <= 1'b1;
                                 mem_write <= 1'b0;
                                 mem_addr  <= {cpu_addr[ADDR_WIDTH-1 : OFFSET_BITS], {OFFSET_BITS{1'b0}}};
@@ -245,8 +243,8 @@ module l1_cache_controller #(
                     end
                 end
 
-                // STATE_WRITE_BACK: Evict dirty victim line to lower memory
-                STATE_WRITE_BACK: begin
+                // S_WRITE_BACK: Evict dirty victim line to lower memory
+                S_WRITE_BACK: begin
                     if (mem_ready) begin
                         mem_req <= 1'b0;
                         // Clear victim dirty bit in cache
@@ -256,15 +254,15 @@ module l1_cache_controller #(
                             dirty_mem_1[saved_set] <= 1'b0;
 
                         // Now initiate line allocation for requested address
-                        state     <= STATE_ALLOCATE;
+                        state     <= S_ALLOCATE;
                         mem_req   <= 1'b1;
                         mem_write <= 1'b0;
                         mem_addr  <= {latched_addr[ADDR_WIDTH-1 : OFFSET_BITS], {OFFSET_BITS{1'b0}}};
                     end
                 end
 
-                // STATE_ALLOCATE: Fetch requested line from memory
-                STATE_ALLOCATE: begin
+                // S_ALLOCATE: Fetch requested line from memory
+                S_ALLOCATE: begin
                     if (mem_ready) begin
                         mem_req   <= 1'b0;
                         cpu_ready <= 1'b1;
@@ -303,12 +301,12 @@ module l1_cache_controller #(
 
                         // Update LRU: newly allocated way becomes MRU
                         lru_mem[saved_set] <= ~latched_victim_way;
-                        state              <= STATE_IDLE;
+                        state              <= S_IDLE;
                     end
                 end
 
                 default: begin
-                    state <= STATE_IDLE;
+                    state <= S_IDLE;
                 end
             endcase
         end

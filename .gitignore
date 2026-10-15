@@ -1,28 +1,27 @@
-# ModelSim / QuestaSim outputs
+# ModelSim / QuestaSim artifacts
 work/
 transcript
 vsim.wlf
-*.wlf
 *.vstf
+*.wlf
 *.log
-*.bak
-*.orig
 
-# Intel Quartus Prime synthesis / project files
+# Python cache
+__pycache__/
+*.pyc
+
+# IDE files
+.vscode/
+*.swp
+
+# Quartus generated databases and outputs
 db/
 incremental_db/
 output_files/
-*.qsf
-*.qpf
-*.rpt
-*.summary
-*.sof
-*.pof
+greybox_tmp/
+simulation/
+hc_output/
 
-# Python cache & Editor artifacts
-__pycache__/
-*.pyc
-.vscode/
-.idea/
-.DS_Store
-Thumbs.db
+# Quartus user-specific and temp files
+*.qws
+*.bak

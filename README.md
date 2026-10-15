@@ -38,14 +38,14 @@ A high-performance, synthesizable, parameterized **L1 Cache Controller** impleme
 
 ```mermaid
 stateDiagram-v2
-    [*] --> STATE_IDLE
+    [*] --> S_IDLE
     
-    STATE_IDLE --> STATE_IDLE: Read/Write Hit (1 Clock Cycle)
-    STATE_IDLE --> STATE_WRITE_BACK: Cache Miss & Victim Line Dirty
-    STATE_IDLE --> STATE_ALLOCATE: Cache Miss & Victim Line Clean
+    S_IDLE --> S_IDLE: Read/Write Hit (1 Clock Cycle)
+    S_IDLE --> S_WRITE_BACK: Cache Miss & Victim Line Dirty
+    S_IDLE --> S_ALLOCATE: Cache Miss & Victim Line Clean
 
-    STATE_WRITE_BACK --> STATE_ALLOCATE: Memory Acknowledges Dirty Line
-    STATE_ALLOCATE --> STATE_IDLE: Memory Line Allocated & CPU Served
+    S_WRITE_BACK --> S_ALLOCATE: Memory Acknowledges Dirty Line
+    S_ALLOCATE --> S_IDLE: Memory Line Allocated & CPU Served
 ```
 
 ---

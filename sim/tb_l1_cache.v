@@ -56,8 +56,6 @@ module tb_l1_cache;
 
     // Cycle counter for latency measurement
     integer cycle_count;
-    integer start_cycle;
-    integer elapsed_cycles;
     integer test_errors = 0;
 
     // =========================================================================
@@ -217,12 +215,15 @@ module tb_l1_cache;
         $display("=================================================================");
 
         // Reset Sequence
-        rst_n     = 0;
-        cpu_req   = 0;
-        cpu_write = 0;
-        cpu_addr  = 0;
-        cpu_wdata = 0;
-        cpu_wstrb = 0;
+        rst_n      = 0;
+        cpu_req    = 0;
+        cpu_write  = 0;
+        cpu_addr   = 0;
+        cpu_wdata  = 0;
+        cpu_wstrb  = 0;
+        read_val   = 0;
+        got_hit    = 0;
+        op_latency = 0;
         #(CLK_PERIOD * 3);
         rst_n = 1;
         #(CLK_PERIOD * 2);
