@@ -1,9 +1,6 @@
-// =============================================================================
-// Module: main_memory_model
-// Description: Behavioral L2 / Main Memory Model for L1 Cache Verification.
-//              Features configurable response latency (default 8 cycles) to
-//              faithfully simulate DRAM / L2 miss penalty.
-// =============================================================================
+// Behavioral L2 / Main Memory Model for L1 Cache Verification.
+// Features configurable response latency (default 8 cycles) to
+// faithfully simulate DRAM / L2 miss penalty.
 
 `timescale 1ns / 1ps
 

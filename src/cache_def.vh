@@ -1,7 +1,4 @@
-// =============================================================================
-// File: cache_def.vh
-// Description: Global constants and state definitions for L1 Cache Controller
-// =============================================================================
+// Global constants and state definitions for L1 Cache Controller
 
 `ifndef CACHE_DEF_VH
 `define CACHE_DEF_VH

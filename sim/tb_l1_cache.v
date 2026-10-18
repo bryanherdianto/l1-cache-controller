@@ -1,17 +1,14 @@
-// =============================================================================
-// Testbench: tb_l1_cache
-// Description: Comprehensive verification testbench for Parameterized 2-Way
-//              Set-Associative L1 Cache Controller. Verifies:
-//              1. Cold Miss & Line Allocation
-//              2. Single-Cycle Read Hit & Spatial Locality
-//              3. Single-Cycle Write Hit & Dirty Bit Setting
-//              4. Write Miss with Write-Allocate
-//              5. 2-Way Set Associativity (Zero conflict on 2 ways)
-//              6. LRU Eviction of Clean Line (No writeback)
-//              7. LRU Eviction of Dirty Line (Triggers Write-Back to Memory)
-//              8. Verification of Written-Back Data in Main Memory
-//              9. AMAT & Cache Performance Metrics Summary
-// =============================================================================
+// Comprehensive verification testbench for Parameterized 2-Way
+// Set-Associative L1 Cache Controller. Verifies:
+// 1. Cold Miss & Line Allocation
+// 2. Single-Cycle Read Hit & Spatial Locality
+// 3. Single-Cycle Write Hit & Dirty Bit Setting
+// 4. Write Miss with Write-Allocate
+// 5. 2-Way Set Associativity (Zero conflict on 2 ways)
+// 6. LRU Eviction of Clean Line (No writeback)
+// 7. LRU Eviction of Dirty Line (Triggers Write-Back to Memory)
+// 8. Verification of Written-Back Data in Main Memory
+// 9. AMAT & Cache Performance Metrics Summary
 
 `timescale 1ns / 1ps
 
@@ -58,9 +55,7 @@ module tb_l1_cache;
     integer cycle_count;
     integer test_errors = 0;
 
-    // =========================================================================
     // Device Under Test (DUT)
-    // =========================================================================
     l1_cache_controller #(
         .ADDR_WIDTH (ADDR_WIDTH),
         .DATA_WIDTH (DATA_WIDTH),
@@ -91,9 +86,7 @@ module tb_l1_cache;
         .stat_writebacks   (stat_writebacks)
     );
 
-    // =========================================================================
     // Main Memory (L2/DRAM) Model Instance
-    // =========================================================================
     main_memory_model #(
         .ADDR_WIDTH     (ADDR_WIDTH),
         .LINE_BYTES     (LINE_BYTES),
@@ -121,9 +114,7 @@ module tb_l1_cache;
         else cycle_count <= cycle_count + 1;
     end
 
-    // =========================================================================
     // CPU Transaction Helper Tasks
-    // =========================================================================
     task cpu_read_word(
         input [ADDR_WIDTH-1:0] addr,
         output [DATA_WIDTH-1:0] data,
@@ -193,9 +184,7 @@ module tb_l1_cache;
         end
     endtask
 
-    // =========================================================================
     // Main Verification Test Suite
-    // =========================================================================
     reg [DATA_WIDTH-1:0] read_val;
     reg                  got_hit;
     integer              op_latency;
@@ -210,9 +199,7 @@ module tb_l1_cache;
     localparam ADDR_SET5_TAG3 = 32'h0003_0050;
 
     initial begin
-        $display("=================================================================");
         $display("STARTING L1 CACHE CONTROLLER VERIFICATION (2-WAY SET-ASSOCIATIVE)");
-        $display("=================================================================");
 
         // Reset Sequence
         rst_n      = 0;
@@ -228,9 +215,7 @@ module tb_l1_cache;
         rst_n = 1;
         #(CLK_PERIOD * 2);
 
-        // ---------------------------------------------------------------------
         // TEST 1: Cold Read Miss (Compulsory Miss)
-        // ---------------------------------------------------------------------
         $display("\n[TEST 1] Testing Cold Read Miss on address 0x0000_0100...");
         cpu_read_word(32'h0000_0100, read_val, got_hit, op_latency);
         if (!got_hit && op_latency >= MEM_LATENCY) begin
@@ -240,9 +225,7 @@ module tb_l1_cache;
             test_errors = test_errors + 1;
         end
 
-        // ---------------------------------------------------------------------
         // TEST 2: Single-Cycle Read Hit & Spatial Locality
-        // ---------------------------------------------------------------------
         $display("\n[TEST 2] Testing Read Hit on address 0x0000_0100 (Temporal Locality)...");
         cpu_read_word(32'h0000_0100, read_val, got_hit, op_latency);
         if (got_hit && op_latency == 1) begin
@@ -261,9 +244,7 @@ module tb_l1_cache;
             test_errors = test_errors + 1;
         end
 
-        // ---------------------------------------------------------------------
         // TEST 3: Single-Cycle Write Hit & Dirty Bit Marking
-        // ---------------------------------------------------------------------
         $display("\n[TEST 3] Testing Write Hit on address 0x0000_0104 with 0xDEADBEEF...");
         cpu_write_word(32'h0000_0104, 32'hDEADBEEF, 4'b1111, got_hit, op_latency);
         if (got_hit && op_latency == 1) begin
@@ -282,9 +263,7 @@ module tb_l1_cache;
             test_errors = test_errors + 1;
         end
 
-        // ---------------------------------------------------------------------
         // TEST 4: Write Miss with Write-Allocate
-        // ---------------------------------------------------------------------
         $display("\n[TEST 4] Testing Write Miss with Write-Allocate on 0x0000_0200...");
         cpu_write_word(32'h0000_0200, 32'hCAFEBABE, 4'b1111, got_hit, op_latency);
         if (!got_hit && op_latency >= MEM_LATENCY) begin
@@ -303,9 +282,7 @@ module tb_l1_cache;
             test_errors = test_errors + 1;
         end
 
-        // ---------------------------------------------------------------------
         // TEST 5: 2-Way Set Associativity Verification
-        // ---------------------------------------------------------------------
         $display("\n[TEST 5] Verifying 2-Way Set Associativity on Set 5...");
         $display("         Accessing Addr A (Tag 1, Set 5) -> Fills Way 0");
         cpu_read_word(ADDR_SET5_TAG1, read_val, got_hit, op_latency);
@@ -322,9 +299,7 @@ module tb_l1_cache;
         if (got_hit && op_latency == 1) $display("   PASS: Addr B is a HIT in Way 1 (1 cycle)");
         else begin $display("   FAIL: Addr B was unexpectedly evicted!"); test_errors = test_errors + 1; end
 
-        // ---------------------------------------------------------------------
         // TEST 6: LRU Eviction of Clean Line (No Writeback)
-        // ---------------------------------------------------------------------
         $display("\n[TEST 6] Testing LRU Eviction of Clean Line...");
         // Addr B was read most recently (MRU), so Addr A is currently LRU
         // Accessing Addr C (Tag 3, Set 5) should evict Addr A cleanly
@@ -332,9 +307,7 @@ module tb_l1_cache;
         cpu_read_word(ADDR_SET5_TAG3, read_val, got_hit, op_latency);
         $display("   PASS: Line allocated for Addr C. Verified stat_writebacks = %0d", stat_writebacks);
 
-        // ---------------------------------------------------------------------
         // TEST 7: LRU Eviction of Dirty Line (Triggers Write-Back to Memory)
-        // ---------------------------------------------------------------------
         $display("\n[TEST 7] Testing LRU Eviction of Dirty Line with Memory Write-Back...");
         // Make Addr C dirty by writing to it
         cpu_write_word(ADDR_SET5_TAG3, 32'h55AA55AA, 4'b1111, got_hit, op_latency);
@@ -353,9 +326,7 @@ module tb_l1_cache;
             test_errors = test_errors + 1;
         end
 
-        // ---------------------------------------------------------------------
         // TEST 8: Verify Written-Back Data in Main Memory
-        // ---------------------------------------------------------------------
         $display("\n[TEST 8] Verifying written-back data persists in main memory...");
         // Accessing Addr C again will re-fetch from memory; should return 0x55AA55AA!
         cpu_read_word(ADDR_SET5_TAG3, read_val, got_hit, op_latency);
@@ -366,13 +337,9 @@ module tb_l1_cache;
             test_errors = test_errors + 1;
         end
 
-        // =====================================================================
         // Final Performance Scorecard & AMAT Calculation
-        // =====================================================================
         #(CLK_PERIOD * 5);
         $display("\n=================================================================");
-        $display("       L1 CACHE HARDWARE PERFORMANCE SCORECARD (FOR CV/PAPER)");
-        $display("=================================================================");
         $display("  Total CPU Requests      : %0d", (stat_read_hits + stat_read_misses + stat_write_hits + stat_write_misses));
         $display("  Read Hits               : %0d", stat_read_hits);
         $display("  Read Misses             : %0d", stat_read_misses);
@@ -381,18 +348,16 @@ module tb_l1_cache;
         $display("  Total Cache Hits        : %0d", (stat_read_hits + stat_write_hits));
         $display("  Total Cache Misses      : %0d", (stat_read_misses + stat_write_misses));
         $display("  Dirty Line Writebacks   : %0d", stat_writebacks);
-        $display("-----------------------------------------------------------------");
         $display("  Hit Latency             : 1 Clock Cycle (Sustained)");
         $display("  Miss Penalty (Clean)    : %0d Clock Cycles", (MEM_LATENCY + 1));
         $display("  Miss Penalty (Dirty)    : %0d Clock Cycles", (MEM_LATENCY * 2 + 1));
         $display("=================================================================");
 
         if (test_errors == 0) begin
-            $display(">>> ALL TESTS PASSED SUCCESSFULLY! (0 ERRORS) <<<");
+            $display(">>> ALL TESTS PASSED SUCCESSFULLY! <<<");
         end else begin
             $display(">>> VERIFICATION FAILED WITH %0d ERRORS <<<", test_errors);
         end
-        $display("=================================================================\n");
 
         $finish;
     end

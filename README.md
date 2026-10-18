@@ -1,129 +1,93 @@
 # Parameterized 2-Way Set-Associative L1 Cache Controller in Verilog
 
-[![Language: Verilog](https://img.shields.io/badge/Language-Verilog%20(IEEE%201364--2001)-blue.svg)](#)
-[![Simulation: ModelSim](https://img.shields.io/badge/Simulation-ModelSim%20%2F%20QuestaSim-orange.svg)](#)
-[![Synthesizable](https://img.shields.io/badge/Design-Fully%20Synthesizable-brightgreen.svg)](#)
-[![Verification](https://img.shields.io/badge/Testbench-100%25%20Passing%20(8%2F8)-success.svg)](#)
-
-A high-performance, synthesizable, parameterized **L1 Cache Controller** implemented in Verilog. Designed for integration with 32-bit RISC processors (e.g., RISC-V RV32I) and domain-specific accelerators, addressing the memory-wall latency bottleneck.
-
----
+A high-performance, synthesizable, parameterized L1 Cache Controller implemented in Verilog. Designed for 32-bit RISC processors (such as RISC-V RV32I) and accelerators to overcome the memory-wall latency bottleneck between fast processor pipelines and slower main memory.
 
 ## Key Features
 
-- **2-Way Set-Associative Architecture**: Parameterized set count (`NUM_SETS = 64`), line size (`16 Bytes / 128 bits`), and address width (`32 bits`), providing 2 KB default L1 capacity.
-- **Single-Cycle Hit Latency**: Parallel combinational tag matching and word multiplexing delivering 1-cycle throughput on both read and write hits.
-- **Write-Back with Write-Allocate**: Employs per-line dirty bits and byte-enable strobes (`wstrb`) to minimize off-chip DRAM bus transactions.
-- **True 1-bit LRU Eviction**: Tracks way recency per set with automatic preferential allocation to invalid lines.
-- **On-Chip Performance Counters**: Hardware telemetry registers for `stat_read_hits`, `stat_read_misses`, `stat_write_hits`, `stat_write_misses`, and `stat_writebacks` to evaluate AMAT in real-time.
-- **Complete Testbench & Memory Model**: Includes behavioral DRAM/L2 memory model with configurable burst access latency.
+- 2-Way Set-Associative Architecture: Balances fast single-cycle lookups with reduced conflict misses.
+- Single-Cycle Hit Latency: Parallel tag matching and word selection deliver 1-cycle throughput on read and write hits.
+- Write-Back with Write-Allocate: Keeps data changes in cache and only writes back to main memory when a modified line is evicted, saving bus bandwidth.
+- True 1-bit LRU Eviction: Tracks which line was accessed least recently in each set, giving priority to empty lines first.
+- On-Chip Performance Counters: Hardware telemetry registers track read hits, read misses, write hits, write misses, and writebacks to evaluate cache efficiency.
+- Testbench and Memory Model: Includes a full behavioral memory model and comprehensive test suite.
 
----
+## Cache Configuration and Capacity
+
+Default hardware dimensions:
+
+- Address Width: 32 bits
+- Word Data Width: 32 bits (4 bytes)
+- Cache Line Size: 16 bytes (128 bits, holds 4 words)
+- Number of Sets: 64 sets
+- Associativity: 2 ways per set
+- Total Capacity: 64 sets x 2 ways x 16 bytes = 2048 bytes (2 KB)
+
+## Internal Storage Structure
+
+Each of the 64 sets contains two independent ways (Way 0 and Way 1) using the following storage arrays:
+
+- Tag Array: Stores 22-bit address tags to identify which memory block is currently held.
+- Valid Bit: 1 bit per line indicating if the line holds valid data.
+- Dirty Bit: 1 bit per line indicating if data was modified and needs to be written back to memory upon eviction.
+- Data Array: Stores the 128-bit cache line contents (four 32-bit words).
+- LRU Bit: 1 bit per set tracking access recency (points to Way 0 or Way 1 as the next victim).
 
 ## Architecture Specification
 
 ### 32-Bit Address Partitioning
 
-```
-+------------------------------------+----------------+-------------------+
-|         TAG (Bits 31..10)          | INDEX (9..4)   | OFFSET (3..0)     |
-|              22 bits               |    6 bits      | 4 bits (16 Bytes) |
-+------------------------------------+----------------+-------------------+
-                                                      | W_OFF  | B_OFF    |
-                                                      | (3..2) | (1..0)   |
-                                                      +--------+----------+
-```
+![](doc/instruction_format.drawio.png "L1 Cache Controller Instruction Format")
+
+The 32-bit CPU address is split into three parts:
+
+- Tag (Bits 31:10, 22 bits): Compared against stored tags in both ways to determine a hit.
+- Index (Bits 9:4, 6 bits): Selects one of the 64 sets in the cache (2 to the power of 6 = 64).
+- Offset (Bits 3:0, 4 bits): Selects the byte within the 16-byte line. Bits 3:2 choose the 32-bit word, and bits 1:0 choose the byte lane.
+
+### Replacement Policy
+
+When a miss occurs and a line must be brought into the cache, the controller chooses a replacement way in this order:
+
+- If Way 0 is empty (invalid), choose Way 0.
+- If Way 1 is empty (invalid), choose Way 1.
+- If both ways are full, use the 1-bit LRU flag to replace the least recently used way.
 
 ### Core Controller FSM
 
-```mermaid
-stateDiagram-v2
-    [*] --> S_IDLE
-    
-    S_IDLE --> S_IDLE: Read/Write Hit (1 Clock Cycle)
-    S_IDLE --> S_WRITE_BACK: Cache Miss & Victim Line Dirty
-    S_IDLE --> S_ALLOCATE: Cache Miss & Victim Line Clean
+![](doc/state_diagram.png "L1 Cache Controller FSM")
 
-    S_WRITE_BACK --> S_ALLOCATE: Memory Acknowledges Dirty Line
-    S_ALLOCATE --> S_IDLE: Memory Line Allocated & CPU Served
-```
+The controller operates using a 3-state finite state machine:
 
----
+- S_IDLE: Serves CPU requests. Read and write hits complete in 1 cycle. On a miss, it stalls the CPU and moves to S_WRITE_BACK if the victim line is dirty, or S_ALLOCATE if clean.
+- S_WRITE_BACK: Writes a dirty victim line back to memory, then transitions to S_ALLOCATE.
+- S_ALLOCATE: Fetches the missing line from memory, updates the cache, completes the CPU request, and returns to S_IDLE.
 
-## Repository Structure
+### Performance and Timing (AMAT)
 
-```
-l1-cache-controller/
-├── doc/
-│   └── l1_cache_architecture.md    # Detailed architectural specification & AMAT equations
-├── sim/
-│   ├── main_memory_model.v         # Behavioral DRAM/L2 burst memory model
-│   ├── tb_l1_cache.v               # 8-scenario comprehensive verification testbench
-│   └── run_sim.py                  # Cross-platform 1-click simulation script
-├── src/
-│   ├── cache_def.vh                # Global parameters & state definitions
-│   └── l1_cache_controller.v       # Synthesizable 2-Way L1 Cache Controller
-├── .gitignore                      # ModelSim & Quartus ignore definitions
-└── README.md                       # Project documentation & benchmark scorecard
-```
+Average Memory Access Time (AMAT) measures average access speed:
+AMAT = Hit Time + (Miss Rate x Miss Penalty)
 
----
+Under default simulation settings with 8-cycle memory latency:
 
-## Verification & Benchmark Scorecard
+- Cache Hit: 1 clock cycle.
+- Clean Miss Penalty: 9 clock cycles (8 memory cycles + 1 allocate cycle).
+- Dirty Miss Penalty: 17 clock cycles (8 writeback cycles + 8 allocate cycles + 1 cycle).
 
-The testbench systematically validates 8 core architectural behaviors:
-1. **Cold Read Miss**: Stalls CPU pipeline and allocates line from lower memory.
-2. **Single-Cycle Read Hit & Spatial Locality**: Verifies consecutive word access in 1 cycle.
-3. **Single-Cycle Write Hit**: Updates cache line, marks dirty bit, completes in 1 cycle.
-4. **Write Miss with Write-Allocate**: Fetches line, merges CPU write strobes, installs dirty line.
-5. **2-Way Associativity**: Confirms distinct memory tags mapping to the same set coexist without conflict eviction.
-6. **Clean LRU Eviction**: Evicts clean line without issuing redundant memory write requests.
-7. **Dirty LRU Eviction**: Automatically issues 128-bit memory writeback before line allocation.
-8. **Memory Consistency**: Validates that written-back data persists in lower memory.
+For a 90 percent hit rate with 20 percent dirty evictions:
 
-### Simulation Output
+- Effective Miss Penalty: (0.80 x 9) + (0.20 x 17) = 10.6 cycles.
+- AMAT: 1 + (0.10 x 10.6) = 2.06 cycles per access.
+  Compared to flat 8-cycle uncached access, this represents an approximate 3.88x speedup.
 
-```text
-=================================================================
-       L1 CACHE HARDWARE PERFORMANCE SCORECARD (FOR CV/PAPER)
-=================================================================
-  Total CPU Requests      : 16
-  Read Hits               : 7
-  Read Misses             : 6
-  Write Hits              : 2
-  Write Misses            : 1
-  Total Cache Hits        : 9
-  Total Cache Misses      : 7
-  Dirty Line Writebacks   : 1
------------------------------------------------------------------
-  Hit Latency             : 1 Clock Cycle (Sustained)
-  Miss Penalty (Clean)    : 9 Clock Cycles
-  Miss Penalty (Dirty)    : 17 Clock Cycles
-=================================================================
->>> ALL TESTS PASSED SUCCESSFULLY! (0 ERRORS) <<<
-=================================================================
-```
+### Waveform
 
----
+![](doc/waveform.png "L1 Cache Controller Waveform")
 
-## How to Run Simulation
+The waveform demonstrates key cache behaviors:
 
-### Method 1: Using Python Script (Automated)
-```bash
-python sim/run_sim.py
-```
-
-### Method 2: Using ModelSim CLI directly
-```bash
-vlib work
-vlog -work work +incdir+src src/l1_cache_controller.v sim/main_memory_model.v sim/tb_l1_cache.v
-vsim -c -do "run -all; quit -f" work.tb_l1_cache
-```
-
----
-
-## Academic & CV Highlights
-
-- **Computer Architecture Fundamentals**: Demonstrates clear mastery of cache hierarchies, set-associative tag arrays, LRU replacement policies, and dirty-bit writeback mechanics.
-- **Synthesizable Verilog**: Written to strictly adhere to synthesizable RTL standards, compatible with Intel Quartus Prime (Cyclone/MAX/Stratix) and AMD/Xilinx Vivado.
-- **Hardware Telemetry for AMAT**: Enables empirical profiling of cache miss penalties and memory stalls in processor sub-systems.
+- Cold Read Miss: Stalls the CPU while fetching the missing line from memory, completing in 11 cycles.
+- Read Hit: Returns requested data in 1 cycle with cpu_hit asserted.
+- Write Hit: Updates cache data in 1 cycle and marks the line dirty.
+- Write Miss: Fetches the missing line from memory, merges CPU write data, and marks the line dirty.
+- 2-Way Associativity: Retains two lines in the same set simultaneously without conflict.
+- Dirty Eviction: Writes modified data back to memory before allocating the new line, taking 20 cycles total.

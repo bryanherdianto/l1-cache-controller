@@ -163,7 +163,7 @@ module l1_cache_controller #(
 
             // Invalidate all cache lines and initialize LRU.
             // Note: tag_mem and data_mem are intentionally omitted from reset
-            // to allow EDA tools (Quartus/Vivado) to infer high-density Block RAM (BRAM).
+            // to allow EDA tools to infer high-density Block RAM (BRAM).
             for (i = 0; i < NUM_SETS; i = i + 1) begin
                 valid_mem_0[i] <= 1'b0;
                 dirty_mem_0[i] <= 1'b0;
